@@ -1,0 +1,50 @@
+﻿@page "/"
+@using Newtonsoft.Json;
+@using PlaningPokerInLaw.Shared;
+@inject ParticipantService userService
+@inject ILocalStorageService localstorage
+
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+
+<PageTitle>Planing Poker</PageTitle>
+
+<h1>Welcome to Neel's Planning Poker</h1>
+
+Lets play Poker..........
+
+@if (participant is not null)
+{
+    <p>Welcome @participant.Name.ToUpperInvariant()</p>
+
+    <button @onclick="GoToPlayPoker" class="btn btn-primary">Play Poker</button>
+}
+
+
+@code {
+    private Participant? participant;
+
+    protected override async Task OnInitializedAsync()
+    {
+        userService.OnChange += () =>
+        {
+            participant = userService.User;
+            StateHasChanged();
+        };
+        participant = userService.User;
+
+        await base.OnInitializedAsync();
+    }
+
+    public void Dispose()
+    {
+        userService.OnChange -= StateHasChanged;
+    }
+
+    private void GoToPlayPoker()
+    {
+        NavigationManager.NavigateTo("/participantlist");   
+    }
+
+}

@@ -1,0 +1,213 @@
+﻿@page "/board"
+@using PlaningPokerInLaw.Shared
+@inject HttpClient Http
+@inject PokerHubConnectionService signalR_Hub
+@inject ParticipantService userService
+@inject ILogger<Participants> logger
+
+
+@if (participants == null)
+{
+    <div class="playingCards">
+        <div class="playingCards fourColours faceImages simpleCards inText rotateHand">...</div>
+    </div>
+}
+else
+{
+    <div class="playingCards">
+        @if (isVotingInProgress)
+        {
+            <div id="table">
+                <ul class="table">
+                    @foreach (var cardPoint in cardValues)
+                    {
+                        Tuple<string, string> suiteTuple = getRandomSuite();
+                        @if (cardPoint == selectedPointsValue)
+                        {
+                            <strong>
+                            <li @onclick="() => SelectCard(cardPoint)">
+                                <a class="card rank-@cardPoint @suiteTuple.Item2">
+                                    <span class="rank">@cardPoint</span>
+                                        @* <span class="suit">@suiteTuple.Item1</span> *@
+                                </a>
+                            </li>
+                            </strong>
+                        }
+                        else
+                        {
+                            <li @onclick="() => SelectCard(cardPoint)">
+                                <a class="card rank-@cardPoint @suiteTuple.Item2">
+                                    <span class="rank">@cardPoint</span>
+                                    @* <span class="suit">@suiteTuple.Item1</span> *@
+                                </a>
+                            </li>
+                        }
+                    }
+                </ul>
+            </div>
+        }
+        else
+        {
+            if (isOpenCardsIssued)
+            {
+                <div id="table">
+                    <ul class="table">
+                        @foreach (var userSelections in pointsSelectedByParticipants)
+                        {
+                            Tuple<string, string> suiteTuple = getRandomSuite();
+                            <li>
+                                <a class="card rank-@userSelections.Value @suiteTuple.Item2">
+                                    <span class="rank">@userSelections.Value</span>
+                                    @* <span class="suit">@suiteTuple.Item1</span> *@
+                                </a>
+                            </li>
+                            <div>@userSelections.Key</div>
+                        }
+                    </ul>
+                </div>
+            }
+            else
+            {
+                <ul class="deck">
+                    @for (int i = 0; i < 10; i++)
+                    {
+                        <li><div class="card back">*</div></li>
+                    }
+                </ul>
+            }
+        }
+    </div>
+
+}
+
+@code {
+    private List<Participant>? participants;
+    private Participant? loggedInUser;
+    private string storyNumber = string.Empty;
+    private bool isVotingInProgress = false;
+    private bool isOpenCardsIssued = false;
+    private IDictionary<string, int> pointsSelectedByParticipants = new Dictionary<string, int>();
+    private List<int> cardValues = new List<int> { 1, 2, 3, 5, 8, 13 };
+    private int selectedPointsValue = -1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loggedInUser = userService.User;
+        participants = await Http.GetFromJsonAsync<List<Participant>>("Participants");
+
+        if (participants == null)
+        {
+            participants = new();
+        }
+
+        signalR_Hub.AddVotingStartedListenerListener(() =>
+        {
+            logger.LogInformation($"Voting Started");
+            this.isVotingInProgress = true;
+            StateHasChanged();
+        });
+
+        signalR_Hub.AddVotingStoppedListenerListener(() =>
+        {
+            logger.LogInformation($"Voting Started");
+            this.isVotingInProgress = false;
+            isOpenCardsIssued = false;
+            StateHasChanged();
+        });
+
+        signalR_Hub.AddOpenCardsListenersListener(() =>
+        {
+            logger.LogInformation($"Cards Opened");
+            isOpenCardsIssued = true;
+            StateHasChanged();
+        });
+
+        signalR_Hub.AddClearBoardsListener(() =>
+        {
+            logger.LogInformation($"Borad Reset");
+            isVotingInProgress = false;
+            isOpenCardsIssued = false;
+            pointsSelectedByParticipants = new Dictionary<string, int>();
+            StateHasChanged();
+        });
+
+        signalR_Hub.AddVotingSubmittedListener((from, points, story) =>
+        {
+            from = from.Trim();
+            logger.LogInformation($"{from} selected {points} for story {story}");
+            if (pointsSelectedByParticipants.ContainsKey(from))
+            {
+                pointsSelectedByParticipants[from] = points;
+            }
+            else
+            {
+                pointsSelectedByParticipants.Add(from, points);
+            }
+        });
+    }
+
+
+    private void OnStartClick()
+    {
+        StartVoting().Start();
+    }
+
+    private void OnStopClick()
+    {
+        StopVotingAndShowCards().Start();
+    }
+
+    private void OnClearClick()
+    {
+        ClearPoints().Start();
+    }
+
+    private Tuple<string, string> getRandomSuite()
+    {
+        var rngNum = System.Security.Cryptography.RandomNumberGenerator.GetInt32(1, 5);
+        return rngNum switch
+        {
+            1 => new Tuple<string, string>("♦", "diams"),
+            2 => new Tuple<string, string>("♠", "spades"),
+            3 => new Tuple<string, string>("♥", "hearts"),
+            _ => new Tuple<string, string>("♣", "clubs")
+        };
+
+        // return rngNum switch
+        // {
+        //     1 => "heart",
+        //     2 => "spade",
+        //     3 => "heart",
+        //     _ => "spade"
+        // };
+    }
+
+    private void SelectCard(int cardValue)
+    {
+        selectedPointsValue = cardValue;
+        StateHasChanged();
+        SubmitVote(cardValue).GetAwaiter().GetResult();
+    }
+
+    private async Task StartVoting()
+    {
+        await signalR_Hub.StartVoting();
+    }
+
+    private async Task StopVotingAndShowCards()
+    {
+        await signalR_Hub.StopVoting();
+        await signalR_Hub.OpenCards();
+    }
+
+    private async Task ClearPoints()
+    {
+        await signalR_Hub.ClearBoards();
+    }
+
+    private async Task SubmitVote(int points)
+    {
+        await signalR_Hub.VoteSubmit(loggedInUser?.Email, points, storyNumber);
+    }
+}
+

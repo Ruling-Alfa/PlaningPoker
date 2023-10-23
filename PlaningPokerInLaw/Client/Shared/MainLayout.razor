@@ -1,0 +1,101 @@
+﻿@using PlaningPokerInLaw.Shared;
+@using Newtonsoft.Json;
+@inherits LayoutComponentBase
+@inject ParticipantService userService
+@inject NavigationManager NavigationManager
+@inject ILocalStorageService localstorage
+@inject ILogger<MainLayout> logger
+@inject HttpClient Http
+
+<div class="page">
+    @* <div class="sidebar">
+        <NavMenu />
+    </div> *@
+
+    <main>
+        <div class="top-row px-4">
+            @if(participant is null){
+                <a style="cursor: pointer;" @onclick="LogInRedirect">Login</a>
+            }
+            else{
+                <a style="cursor: pointer;" @onclick="LogUserOut">LogOut</a>
+            }
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private Participant participant;
+    private string password = null;
+    private string adminPassword = "EsiLaw%N33L";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetUserData();
+        await base.OnInitializedAsync();
+    }
+
+
+    protected async Task GetUserData()
+    {
+        participant = userService.User;
+        if (participant is null)
+        {
+            var userJson = await localstorage.GetItemAsStringAsync("user");
+            if (!string.IsNullOrEmpty(userJson))
+            {
+                var userValue = JsonConvert.DeserializeObject<Participant>(userJson);
+                await userService.SetAsync(userValue);
+            }
+            userService.OnChange += () =>
+            {
+                participant = userService.User;
+                StateHasChanged();
+            };
+            participant = userService.User;
+        }
+    }
+
+    public void Dispose()
+    {
+        userService.OnChange -= StateHasChanged;
+    }
+
+    protected void LogInRedirect()
+    {
+        NavigationManager.NavigateTo("/login");
+    }
+
+    protected void LogUserOut()
+    {
+        Task.Run(() => LogTheUserOut());
+    }
+
+    protected async Task LogTheUserOut()
+    {
+        if (participant is not null && participant.Email is not null)
+        {
+            var resp = await Http.DeleteAsync($"Participants/{participant.Email}");
+
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var err = await resp.Content.ReadAsStringAsync();
+                logger.LogInformation(err);
+            }
+            else
+            {
+                //set user session to null
+                await userService.SetAsync(null);
+
+            }
+            LogInRedirect();
+            //reset all models
+            password = null;
+        }
+    }
+}

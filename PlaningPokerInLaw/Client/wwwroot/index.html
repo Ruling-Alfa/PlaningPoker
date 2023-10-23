@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>PlaningPokerInLaw</title>
+    <base href="/" />
+    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="PlaningPokerInLaw.Client.styles.css" rel="stylesheet" />
+    <link href="manifest.json" rel="manifest" />
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
+
+    <!-- Custom-->
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js"></script>
+    <script type="text/javascript">
+            <!--
+        $(document).ready(function () {
+            $('.options').addClass('active');
+            $('.toggle li').click(function () {
+                $('.playingCards').toggleClass($(this).text());
+            });
+            $('.lang li').click(function () {
+                $('html').attr('lang', $(this).text());
+                $('html').attr('xml:lang', $(this).text());
+            });
+        });
+        // --></script>
+    <link rel="stylesheet" type="text/css" href="/css/cards.css" media="screen" />
+    <!--[if lt IE 9]>
+        <link rel="stylesheet" type="text/css" href="/css/cards-ie.css" media="screen" />
+    <![endif]-->
+    <!--[if IE 9]>
+        <link rel="stylesheet" type="text/css" href="/css/cards-ie9.css" media="screen" />
+    <![endif]-->
+
+
+    <style type="text/css">
+        <!--
+        /*body {
+            margin: 2em 20%;
+        }*/
+
+        .options.active {
+            position: fixed;
+            top: 1em;
+            right: 1em;
+            background: #ddd;
+            padding: .5em;
+        }
+
+            .options.active h3 {
+                font-size: 1.2em;
+            }
+
+            .options.active ul {
+                padding: 0;
+            }
+
+            .options.active li {
+                color: #00c;
+                text-decoration: underline;
+                margin-left: 1.5em;
+                cursor: pointer;
+            }
+
+                .options.active li:hover {
+                    text-decoration: none;
+                }
+
+        div.clear {
+            clear: both;
+            height: 0;
+            line-height: 0;
+            font-size: 1px;
+            visibility: hidden;
+        }
+        -->
+    </style>
+    <!--Custom end-->
+</head>
+
+<body>
+    <div id="app">
+        <svg class="loading-progress">
+            <circle r="40%" cx="50%" cy="50%" />
+            <circle r="40%" cx="50%" cy="50%" />
+        </svg>
+        <div class="loading-progress-text"></div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script>navigator.serviceWorker.register('service-worker.js');</script>
+</body>
+
+</html>

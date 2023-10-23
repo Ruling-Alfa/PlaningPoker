@@ -1,0 +1,170 @@
+﻿@page "/participantlist"
+@using PlaningPokerInLaw.Shared
+@inject HttpClient Http
+@inject PokerHubConnectionService signalR_Hub
+@inject ParticipantService userService
+@inject ILogger<Participants> logger
+
+@if (participants == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    @* <table class="table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Name</th>
+                <th>Email</th>
+
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in participants)
+            {
+                <tr>
+                    <td>@p.isModerator</td>
+                    <td>@p.Name</td>
+                    <td>@p.Email</td>
+                </tr>
+            }
+        </tbody>
+    </table> *@
+
+    <div class="row overflow-auto flex-nowrap">
+        @foreach (var p in participants)
+        {
+            <div class="col-auto">
+                <div class="card">
+                    <div class="card-header">
+                        @Char.ToUpperInvariant(p.Name[0])
+                    </div>
+
+                    <div class="card-body">
+                        <h5 class="card-title">@p.Name</h5>
+                        <p class="card-text">@p.Email </p>
+                    </div>
+
+                </div>
+            </div>
+        }
+    </div>
+
+    <Board></Board>
+
+    @if (loggedInUser != null && loggedInUser.isModerator)
+    {
+        @if (!isVotingInProgress)
+        {
+            <button type="button" @onclick="OnStartClick" class="btn btn-primary">
+                Start
+            </button>
+
+            <button type="button" @onclick="OnClearClick" class="btn btn-primary">
+                Clear
+            </button>
+        }
+        else
+        {
+            <button type="button" @onclick="OnStopClick" class="btn btn-primary">
+                Stop & ShowCards
+            </button>
+        }
+    }
+}
+
+@code {
+    private List<Participant>? participants;
+    private Participant? loggedInUser;
+    private bool isVotingInProgress = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loggedInUser = userService.User;
+        participants = await Http.GetFromJsonAsync<List<Participant>>("Participants");
+
+        if (participants == null)
+        {
+            participants = new();
+        }
+
+        signalR_Hub.AddMessageListener((userFrom, userTo, message) =>
+        {
+            logger.LogInformation($"{userFrom} => {userTo} : {message}");
+        });
+
+        signalR_Hub.AddLogOutListener((userFrom) =>
+        {
+            logger.LogInformation($"{userFrom} Logged-Out");
+            participants = participants?.Where(p => p.Email != userFrom).ToList();
+            StateHasChanged();
+        });
+
+        signalR_Hub.AddVotingStartedListenerListener(() =>
+        {
+            logger.LogInformation($"Voting Started");
+            this.isVotingInProgress = true;
+            StateHasChanged();
+        });
+
+        signalR_Hub.AddVotingStoppedListenerListener(() =>
+        {
+            logger.LogInformation($"Voting Started");
+            this.isVotingInProgress = false;
+            StateHasChanged();
+        });
+
+        signalR_Hub.AddLogInListener(async (userFrom) =>
+        {
+            logger.LogInformation($"{userFrom} Logged-In");
+            try
+            {
+                var newParticipant = await Http.GetFromJsonAsync<Participant>($"Participants/{userFrom}");
+                if (newParticipant != null)
+                {
+                    participants?.Add(newParticipant);
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogInformation(ex.Message);
+            }
+        });
+    }
+
+
+    private void OnStartClick()
+    {
+        Task.Run(StartVoting);
+    }
+
+    private void OnStopClick()
+    {
+        Task.Run(StopVotingAndShowCards);
+    }
+
+    private void OnClearClick()
+    {
+        Task.Run(ClearPoints);
+    }
+
+
+    private async Task StartVoting()
+    {
+        await signalR_Hub.StartVoting();
+    }
+
+    private async Task StopVotingAndShowCards()
+    {
+        await signalR_Hub.StopVoting();
+        await signalR_Hub.OpenCards();
+    }
+
+    private async Task ClearPoints()
+    {
+        await signalR_Hub.ClearBoards();
+    }
+}
+

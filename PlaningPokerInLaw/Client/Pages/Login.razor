@@ -1,0 +1,104 @@
+﻿@page "/login"
+@using Newtonsoft.Json;
+@using PlaningPokerInLaw.Shared
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ParticipantService userService
+@implements IDisposable
+
+
+@if (err is not null)
+{
+    <div class="toast align-items-center fade show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                @err
+            </div>
+            <button type="button" class="btn-close me-2 m-auto" @onclick="clearErr" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+}
+
+<form method="post" @onsubmit="OnLoginAsync">
+    <div class="mb-3">
+        <label for="emailId" class="form-label">Email address</label>
+        <input type="email" required @bind-value="participant.Email" class="form-control" id="emailId" aria-describedby="emailHelp">
+        <div id="emailHelp" class="form-text">We'll never share your email with anyone else.</div>
+    </div>
+    <div class="mb-3">
+        <label for="name" class="form-label">Name</label>
+        <input type="text" required @bind-value="participant.Name" class="form-control" id="name">
+    </div>
+    <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <input type="password" @bind-value="password" class="form-control" id="password" aria-describedby="passwordHelp">
+        <div id="passwordHelp" class="form-text">If you are admin insert your admin password</div>
+    </div>
+    <button type="submit" class="btn btn-primary">Start</button>
+</form>
+
+
+@code {
+    private Participant participant = new();
+    private string err = null;
+    private string password = null;
+    private string adminPassword = "EsiLaw%N33L";
+
+    protected override async Task OnInitializedAsync()
+    {
+        checkUser();
+        userService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        userService.OnChange -= StateHasChanged;
+    }
+
+    private void checkUser()
+    {
+        if (userService.User is not null)
+        {
+            NavigationManager.NavigateTo("/participantlist");
+        }
+    }
+
+    private async Task OnLoginAsync()
+    {
+        if (participant is not null && participant.Email is not null
+            && participant.Name is not null)
+        {
+            if (password == adminPassword)
+            {
+                participant.isModerator = true;
+            }
+
+            var resp = await Http.PostAsJsonAsync("Participants", participant);
+
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                err = await resp.Content.ReadAsStringAsync();
+            }
+            else
+            {
+                //reset error model
+                err = null;
+
+                //set user session
+                await userService.SetAsync(participant);
+
+                //redirect to root
+                NavigationManager.NavigateTo("/participantlist");
+            }
+            //reset all models
+            password = null;
+        }
+    }
+
+    private async void clearErr()
+    {
+        err = null;
+    }
+}
+
